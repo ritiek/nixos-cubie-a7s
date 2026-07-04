@@ -322,11 +322,32 @@ stdenv.mkDerivation {
     rm -f "$out/lib/modules/${kernelVersion}/build"
     rm -f "$out/lib/modules/${kernelVersion}/source"
 
-    # Kernel headers needed for out-of-tree module builds later (e.g. the
-    # in-tree BSP AIC8800 WiFi module, Phase 5 open item).
+    # Full configured+built source tree for out-of-tree module builds (e.g.
+    # the AIC8800 USB WiFi driver, Phase 5). Since this is a custom
+    # single-output kernel derivation (not nixpkgs' usual multi-output
+    # buildLinux, which has a dedicated `.dev` output for exactly this
+    # purpose), we mirror that convention manually here: copy the whole
+    # post-build kernel-src working directory (Makefile, Kconfig, .config,
+    # Module.symvers, scripts/, include/{config,generated}/,
+    # arch/arm64/include/, etc.) into $out/build so `make -C $out/build
+    # M=$PWD modules` works for external modules against this exact kernel.
+    # This significantly increases $out's size but is the standard/only
+    # robust way to support out-of-tree modules without guessing which
+    # subset of the tree is load-bearing for a given module's build.
     mkdir -p $out/build
-    cp .config $out/build/.config
-    cp Module.symvers $out/build/Module.symvers 2>/dev/null || true
+    cp -a . $out/build/
+
+    # The BSP source tree ships a prebuilt ramfs skeleton under
+    # bsp/ramfs/ramfs_aarch64/{etc,dev,var}/* containing dangling symlinks
+    # like /etc/resolv.conf -> /tmp/resolv.conf and /dev/log -> /tmp/log.
+    # These are meant to point at a REAL /tmp at runtime inside that
+    # ramdisk image, not at anything that exists in our build sandbox/Nix
+    # store - copying the tree wholesale via `cp -a` above pulls these in
+    # verbatim, which fails nixpkgs' standard fixupPhase noBrokenSymlinks
+    # check ("found N dangling symlinks"). They're irrelevant to building
+    # out-of-tree kernel modules (the actual purpose of $out/build), so
+    # just strip any dangling symlinks from the exported tree entirely.
+    find $out/build -xtype l -delete
 
     runHook postInstall
   '';

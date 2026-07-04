@@ -8,6 +8,7 @@
 {
   imports = [
     ./cubie-a7s.nix
+    ./aic8800-usb.nix
   ];
 
   # nixos-generators' sd-aarch64 format imports
