@@ -113,6 +113,16 @@ matching bracket patch before bumping the kernel/BSP.
 `boot.extraModulePackages`/`aic_fw_path` approach used here:
 https://github.com/icefirex/nixos-radxa-zero3w
 
+Possible future bump: `patryk4815/nixos-cubie-a5e` (Radxa Cubie A5E /
+Allwinner A527, same AIC8800D80 chip, SDIO variant) ships an
+`aic8800-kernel-7.0.patch` that builds the driver against Linux 7.0,
+tested on NixOS 25.11. That board has mainline Linux support, unlike
+the A733 here, so it isn't a drop-in fix - but it's a useful reference
+patch to adapt from if the vendor kernel+BSP fork this project depends
+on is ever rebased past 6.6.98, or once A733 gains mainline
+clock-driver support:
+https://github.com/patryk4815/nixos-cubie-a5e
+
 ## Patches
 
 Patches under `patches/` are applied to the merged kernel+BSP tree by
