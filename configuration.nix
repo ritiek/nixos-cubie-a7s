@@ -134,11 +134,11 @@
   # linux-defconfig-fragment.config, built on the already-enabled
   # USB_GADGET+USB_DWC3_DUAL_ROLE (DWC3 in device mode = a UDC).
   boot.kernelModules = [ "g_ether" ];
-  # NOTE: 10.0.0.3, not 10.0.0.2 - pilab (the host machine used for
-  # first-boot USB-gadget access) has its own onboard USB-gadget usb0
-  # interface statically pinned to 10.0.0.2/24, which collided with this
-  # address and made plain IPv4 ping/SSH to the board unreliable (resolved
-  # via the host's local route table instead of the real gadget link).
+  # NOTE: 10.0.0.3, not 10.0.0.2 - some host machines used for first-boot
+  # USB-gadget access have their own onboard USB-gadget usb0 interface
+  # statically pinned to 10.0.0.2/24, which collides with this address and
+  # makes plain IPv4 ping/SSH to the board unreliable (resolved via the
+  # host's local route table instead of the real gadget link).
   networking.interfaces.usb0.ipv4.addresses = [
     { address = "10.0.0.3"; prefixLength = 24; }
   ];
