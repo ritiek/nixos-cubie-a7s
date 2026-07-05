@@ -128,6 +128,40 @@
 
   system.stateVersion = "25.11";
 
+  # USB gadget (g_ether) - provides usb0 CDC-ECM/RNDIS networking over the
+  # USB-C port for first-boot SSH access when no other network is reachable.
+  # Kernel side is CONFIG_USB_ETH=m/CONFIG_USB_LIBCOMPOSITE=m in
+  # linux-defconfig-fragment.config, built on the already-enabled
+  # USB_GADGET+USB_DWC3_DUAL_ROLE (DWC3 in device mode = a UDC).
+  boot.kernelModules = [ "g_ether" ];
+  # NOTE: 10.0.0.3, not 10.0.0.2 - pilab (the host machine used for
+  # first-boot USB-gadget access) has its own onboard USB-gadget usb0
+  # interface statically pinned to 10.0.0.2/24, which collided with this
+  # address and made plain IPv4 ping/SSH to the board unreliable (resolved
+  # via the host's local route table instead of the real gadget link).
+  networking.interfaces.usb0.ipv4.addresses = [
+    { address = "10.0.0.3"; prefixLength = 24; }
+  ];
+
+  # Good practice for real SBC hardware/firmware blobs (e.g. WiFi/BT
+  # firmware, if ever needed via linux-firmware).
+  hardware.enableRedistributableFirmware = true;
+
+  # NTFS/FUSE mount support (e.g. sshfs). Kernel side is
+  # CONFIG_FUSE_FS=m in linux-defconfig.config; this option only installs
+  # the userspace ntfs3g FUSE mount helper.
+  boot.supportedFilesystems = [ "ntfs" ];
+
+  # This board has no TPM chip. As of nixos-26.05,
+  # boot.initrd.systemd.tpm2.enable defaults to true (tied to the systemd
+  # package's withTpm2Units default), which pulls "tpm-crb"/"tpm-tis" into
+  # boot.initrd.availableKernelModules. Our kernel has CONFIG_TCG_TPM unset
+  # (no TPM hardware to support), so the initrd module-closure computation
+  # hard-fails with "modprobe: FATAL: Module tpm-crb not found". Disable
+  # the initrd TPM2 unit entirely rather than rebuilding the kernel with
+  # TPM drivers we'll never use.
+  boot.initrd.systemd.tpm2.enable = false;
+
   # Filesystem configuration (overridden by nixos-generators for images)
   fileSystems."/" = lib.mkDefault {
     device = "/dev/disk/by-label/NIXOS_SD";
@@ -143,7 +177,7 @@
   # Hostname
   networking.hostName = "radxa-cubie-a7s";
 
-  # Ethernet (gmac0, RGMII) - DHCP by default via NetworkManager.
+  # Ethernet (gmac0, RGMII) - DHCP by default via networking.useDHCP.
   #
   # KNOWN ISSUE, UNRESOLVED (2026-07-04): the onboard RJ45 port (kernel
   # interface `end0`, driver `dwmac-sunxi`) is UNRELIABLE - across 4
@@ -165,7 +199,25 @@
   # currently-recommended way to get this board on the network. Do NOT
   # assume `end0` is reliable until this is properly root-caused - always
   # have a USB-C Ethernet adapter as a fallback when testing.
-  networking.networkmanager.enable = true;
+  #
+  # Switched from NetworkManager to plain DHCP + wpa_supplicant (below) to
+  # allow WiFi to connect automatically on first boot without any
+  # interactive nmtui/nmcli step.
+  networking.useDHCP = lib.mkDefault true;
+
+  # WiFi (AIC8800D80 over USB) - connects automatically on first boot via
+  # networking.wireless (wpa_supplicant), with the SSID/PSK stored in
+  # plaintext here since this bare/standalone repo has no
+  # secrets-management infrastructure.
+  # CHANGE THESE before flashing to a network you don't control:
+  networking.wireless = {
+    enable = true;
+    networks."SSID".psk = "PASS_PLAIN";
+    extraConfig = ''
+      country=IN
+      p2p_disabled=1
+    '';
+  };
 
   # Firewall
   networking.firewall = {

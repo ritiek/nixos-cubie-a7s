@@ -170,7 +170,7 @@ let
     #   output between "retry:give up" and the hang point.
   ];
 in
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "linux-cubie-a7s";
   version = "${kernelVersion}-${bspVersion}";
 
@@ -305,6 +305,16 @@ stdenv.mkDerivation {
 
     mkdir -p $out $out/dtbs/allwinner
     cp arch/arm64/boot/Image $out/Image
+    # The fully-resolved .config (post merge_config.sh + olddefconfig), NOT
+    # the raw pre-merge defconfigFragment. Some NixOS modules grep the
+    # kernel's `configfile` for Kconfig-computed arch defaults (e.g.
+    # CONFIG_ARCH_MMAP_RND_BITS_MAX/CONFIG_ARCH_MMAP_RND_COMPAT_BITS_MAX)
+    # that are never spelled out literally in the raw defconfig/fragment -
+    # only the fully-resolved .config has them. Installed as a build output
+    # (rather than referencing configurePhase's in-tree .config, which
+    # doesn't survive past the build sandbox) so `configfile` below can
+    # point at a stable store path.
+    cp .config $out/config
     # Installed under dtbs/allwinner/ to match the layout NixOS's
     # hardware.deviceTree module expects when scanning ''${kernel}/dtbs/**.
     cp arch/arm64/boot/dts/allwinner/sun60i-a733-cubie-a7s.dtb $out/dtbs/allwinner/sun60i-a733-cubie-a7s.dtb
@@ -382,7 +392,7 @@ stdenv.mkDerivation {
     withRust = kernelConfig.isYes "RUST";
     isModular = kernelConfig.isYes "MODULES";
     config = kernelConfig;
-    configfile = defconfigFragment;
+    configfile = "${finalAttrs.finalPackage}/config";
     kernelPatches = [ ];
     moduleBuildDependencies = [ ];
     commonMakeFlags = [ "ARCH=arm64" ];
@@ -393,4 +403,4 @@ stdenv.mkDerivation {
     license = licenses.gpl2Only;
     platforms = [ "aarch64-linux" ];
   };
-}
+})
