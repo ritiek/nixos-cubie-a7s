@@ -14,6 +14,7 @@ Confirmed working on real hardware:
 - USB-to-Ethernet adapter (host mode via USB-C)
 - USB gadget networking (`g_ether`/`usb0`) - verified end-to-end (ping + SSH)
 - WiFi (AIC8800D80/wpa_supplicant) - connects automatically on boot
+- FPC/PCIe slot - tested using Pimoroni NVMe Base for Raspberry Pi 5 (https://shop.pimoroni.com/products/nvme-base?variant=41219587178579)
 
 Configured but not yet hardware-verified:
 
@@ -22,7 +23,6 @@ Configured but not yet hardware-verified:
 
 Untested:
 
-- FPC/PCIe slot
 - eMMC (my board lacks eMMC)
 
 Not working:
