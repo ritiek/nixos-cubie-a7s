@@ -379,6 +379,25 @@ stdenv.mkDerivation (finalAttrs: {
     # present, which is correct: this board boots via U-Boot
     # generic-extlinux-compatible, not any UEFI/systemd-boot path.
     features = { };
+    # pkgs/os-specific/linux/cpupower's derivation does
+    # `inherit (kernel) version src patches;` - it builds the
+    # tools/power/cpupower userspace CLI straight out of a kernel source
+    # tree. This gets pulled in as soon as `powerManagement.cpuFreqGovernor`
+    # is set (via `config.boot.kernelPackages.cpupower`, see
+    # nixos/modules/tasks/cpu-freq.nix), which fails with "attribute 'src'
+    # missing" without this. Our custom multi-repo-merge kernel has no
+    # single canonical `src` (unpackPhase merges kernelSrc + bspSrc
+    # directly via Nix string interpolation, never through a `src`
+    # derivation attribute - see unpackPhase above), but tools/power/cpupower
+    # only exists in the plain radxa/kernel tree, so exposing kernelSrc here
+    # (unrelated to bspSrc) satisfies cpupower's `inherit` without affecting
+    # our own build in any way.
+    src = kernelSrc;
+    # cpupower inherits patches from the kernel, but our bsp/ patches
+    # (1001, 1004) only apply after the multi-repo merge — cpupower only
+    # sees the plain kernel tree. Pass empty list since cpupower is a
+    # userspace tool and needs none of the kernel driver patches.
+    patches = [ ];
     # Standard nixpkgs kernel-package passthru interface (see
     # pkgs/os-specific/linux/kernel/build.nix's own `passthru` block) -
     # `linuxPackagesFor` and various nixpkgs modules (module-building
