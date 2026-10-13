@@ -160,6 +160,39 @@ in
     gst_all_1.gstreamer
     cedarc
     viplite
+    # `sudo rk-top`: live GPU/NPU/VE load and clocks. GPU/NPU load come from
+    # their drivers' own counters; VE has none, so it shows its IRQ rate
+    # (roughly frames/s). Clocks are the real clock-tree rates.
+    (pkgs.writeShellApplication {
+      name = "rk-top";
+      runtimeInputs = with pkgs; [ coreutils gawk gnused util-linux ];
+      text = ''
+        dbg=/sys/kernel/debug
+        mountpoint -q $dbg || mount -t debugfs none $dbg
+        df=/sys/class/devfreq
+        clk=$dbg/clk
+        mhz() { echo "$(( $(cat "$1") / 1000000 )) MHz"; }
+        irqs() { awk -v n="$1" '$NF == n { s = 0; for (i = 2; i < NF - 3; i++) s += $i; print s }' /proc/interrupts; }
+        dec=$(irqs cedar_dev); enc=$(irqs cedar_dev_ve2)
+        while :; do
+          sleep 1
+          d=$(irqs cedar_dev); e=$(irqs cedar_dev_ve2)
+          out=$(
+            printf '%-9s %8s %9s\n' UNIT LOAD CLOCK
+            printf '%-9s %8s %9s\n' GPU "$(awk '/^GPU Utilisation/ {print $3}' $dbg/pvr/status)" "$(mhz $df/1800000.gpu/cur_freq)"
+            printf '%-9s %8s %9s\n' NPU "$(awk 'NR == 1 {print $NF}' $dbg/viplite/core_loading)" "$(mhz $df/3600000.npu/cur_freq)"
+            printf '%-9s %6s/s %9s\n' VE-DEC "$((d - dec))" "$(mhz $clk/ve-dec/clk_rate)"
+            printf '%-9s %6s/s %9s\n' VE-ENC "$((e - enc))" "$(mhz $clk/ve-enc0/clk_rate)"
+            printf '%-9s %8s %9s\n' DRAM - "$(mhz $clk/dram0/clk_rate)"
+            for z in /sys/class/thermal/thermal_zone*; do
+              printf '%-9s %7sC\n' "$(sed 's/_thermal_zone//; s/_zone//' "$z/type")" "$(( $(cat "$z/temp") / 1000 ))"
+            done
+          )
+          dec=$d; enc=$e
+          printf '\033[H\033[2J%s\n' "$out"
+        done
+      '';
+    })
   ];
   environment.pathsToLink = [ "/share/vpm_run" ];
 }
