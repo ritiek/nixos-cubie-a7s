@@ -15,6 +15,8 @@ Confirmed working on real hardware:
 - USB gadget networking (`g_ether`/`usb0`) - verified end-to-end (ping + SSH)
 - WiFi (AIC8800D80/wpa_supplicant) - connects automatically on boot
 - FPC/PCIe slot - tested using Pimoroni NVMe Base for Raspberry Pi 5 (https://shop.pimoroni.com/products/nvme-base?variant=41219587178579)
+- GPU (PowerVR BXM-4-64), VPU (Cedar) and NPU (VIPLite v2) - see
+  "Hardware accelerators" below
 
 Configured but not yet hardware-verified:
 
@@ -27,8 +29,6 @@ Untested:
 
 Not working:
 
-- GPU - not implemented yet
-- NPU - not implemented yet
 - MIPI CSI - haven't looked
 - Display output (USB-C DisplayPort Alt Mode) - see "Patches" below for why
 
@@ -45,6 +45,33 @@ nix build .#packages.aarch64-linux.default
 ```
 
 Flash `result/sd-image/*.img` to an SD card.
+
+## Hardware accelerators
+
+`accel.nix` packages the vendor userspace for all three blocks, and the
+kernel config enables the matching BSP drivers (IOMMU v2, NSI interconnect,
+CMA + dma-buf heaps, `sunxi-ve`, `vipcore`). The GPU kernel module
+(`pvrsrvkm`, DDK 24.2@6603887) is built out-of-tree from the BSP. udev loads
+all three modules at boot from the device tree.
+
+- GPU: Vulkan 1.3 and OpenCL 3.0 through the Imagination blobs from the
+  `xserver-xorg-img-bxm` deb (same DDK version as the kernel module).
+  GLES/EGL apps need `LIBGL_DRIVERS_PATH=/run/opengl-driver/lib/dri`.
+- VPU: `libcedarc` plus the Allwinner gst-omx plugin (`omxh264dec`,
+  `omxhevcvideodec`, `omxh264videoenc`, ...).
+- NPU: Radxa's VIPLite 2.0 libraries and `vpm_run`, which runs a bundled
+  test network. Models must be compiled to NBG (`.nb`) with Acuity.
+
+Quick checks on the board:
+
+```
+clinfo -l
+vulkaninfo --summary
+gst-launch-1.0 videotestsrc num-buffers=300 ! omxh264videoenc ! omxh264dec ! fakesink
+cd /tmp && vpm_run -s /run/current-system/sw/share/vpm_run/sample.txt -l 1
+```
+
+Not covered: G2D, the Google VP9 decoder and display output.
 
 ## First Contact
 
